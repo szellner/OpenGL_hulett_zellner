@@ -62,7 +62,6 @@ void init()
 	glEnable(GL_LIGHTING);
     
 
-    
     // set color of light0
     GLfloat white[] = {1,1,1,0};		      // light color
     glLightfv(GL_LIGHT0, GL_DIFFUSE, white);   // set diffuse light color
