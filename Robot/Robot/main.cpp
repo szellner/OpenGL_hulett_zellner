@@ -2,7 +2,11 @@
 #include <glut/glut.h>
 #include <math.h>
 
-
+enum {
+    M_HELP,
+    M_AMBIENT,
+    M_POINTLIGHT
+};
 
 
 // function prototypes
@@ -11,6 +15,8 @@ void reshape(int width, int height);
 void skeyboard(int key, int x, int y);
 void keyboard(unsigned char key, int x, int y);
 void init();
+void motion(int x, int y);
+void mouse(int button, int state, int x, int y);
 void drawSnowman(GLfloat radius);
 void drawBottom();
 void drawMiddle();
@@ -20,6 +26,7 @@ void drawFloor();
 void drawTeapot();
 void drawIcosahedron();
 void drawCone(GLdouble base, GLdouble height, GLint slices, GLint stacks);
+void menu(int button);
 
 
 int windowWidth=600;
@@ -27,6 +34,15 @@ int windowHeight=600;
 double snowmanX=0;
 double snowmanZ=0;
 double theta=0;
+
+// camera angles
+float camtheta=0;
+float camphi=0;
+float camzoom = 1;
+
+// light controls
+bool amblight = true;
+bool ptlight = true;
 
 using namespace std;
 
@@ -50,6 +66,8 @@ int main(int argc, char **argv)
     glutReshapeFunc(reshape);
     glutSpecialFunc(skeyboard);
     glutKeyboardFunc(keyboard);
+    glutMouseFunc(mouse);
+    glutMotionFunc(motion);
 
     // initalize opengl parameters
     init();
@@ -68,6 +86,19 @@ void init()
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
     
+    // initialize menu system
+    int lighting = glutCreateMenu(menu);
+    
+    glutAddMenuEntry("Toggle Ambient", M_AMBIENT);
+    glutAddMenuEntry("Toggle Point Light", M_POINTLIGHT);
+    
+    glutCreateMenu(menu);
+    glutAddMenuEntry("Help", M_HELP);
+    
+    glutAddSubMenu("Lighting", lighting);
+    
+    glutAttachMenu(GLUT_RIGHT_BUTTON);
+    
     // initialize background color to black
     glClearColor(0,0,0,0);
     
@@ -82,11 +113,71 @@ void init()
     GLfloat white[] = {1,1,1,0};		      // light color
     glLightfv(GL_LIGHT0, GL_DIFFUSE, white);   // set diffuse light color
     glLightfv(GL_LIGHT0, GL_SPECULAR, white);  // set specular light color
-    glLightfv(GL_LIGHT0, GL_AMBIENT, ambient);
+//    glLightfv(GL_LIGHT0, GL_AMBIENT, ambient);
     
     // enable depth buffering
     glEnable(GL_DEPTH_TEST);
+}
+
+void menu(int button) {
+    switch (button)
+    {
+        case M_HELP:
+            cerr << "Robot CO\n\
+            \n\
+            action                result\n\
+            ------                ------\n\
+            left mouse            rotate view\n\
+            right mouse           access pop-up menu\n\
+            up arrow              move robot up\n\
+            down arrow            move robot down\n\
+            left arrow            move robot left\n\
+            right arrow           move robot right\n\
+            f                     full-screen mode\n\
+            i                     zoom in\n\
+            o                     zoom out\n\
+            \n"
+            << endl;
+        case M_AMBIENT:
+            amblight = !amblight;
+            glutPostRedisplay();
+            break;
+        case M_POINTLIGHT:
+            ptlight = !ptlight;
+            glutPostRedisplay();
+            break;
+            
+    }
+}
+
+void motion(int x, int y) {
+    static int lastX=-1;
+    static int lastY=-1;
     
+    if (lastX==-1 || x==-1) {
+        lastX = x;
+    }
+    else {
+        camphi -=(float)(x-lastX)/ (float) windowWidth;
+        lastX=x;
+    }
+    
+    if (lastY==-1 || y==-1 ) {
+        lastY = y;
+    }
+    else {
+        if ((y>lastY && camtheta<3.14159/2.2) || (y<lastY && camtheta>-3.14159/2.2))
+            camtheta +=(float)(y-lastY)/ (float) windowHeight;
+        lastY=y;
+    }
+    
+    glutPostRedisplay();
+}
+
+void mouse(int button, int state, int x, int y) {
+    if (button==GLUT_LEFT_BUTTON && state==GLUT_DOWN) {
+        motion(-1,-1);
+    }
 }
 
 void skeyboard(int key, int x, int y)
@@ -109,6 +200,23 @@ void keyboard(unsigned char key, int x, int y)
     if (key == 's')
         theta += 2.0;
     glutPostRedisplay();
+    if (key == 'f')
+        glutFullScreen ( );
+    if (key == 27) {
+        windowWidth=500;
+        windowHeight=500;
+        glutReshapeWindow ( windowWidth, windowHeight );
+    }
+    if (key == 'i')
+        camzoom--;
+    if (key == 'o')
+        camzoom++;
+    
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    gluPerspective(20.0+camzoom, 1.0, 1, 100.0);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
 }
 
 void reshape(int width, int height)
@@ -122,20 +230,34 @@ void reshape(int width, int height)
 
 void display()
 {
-
     // clear buffers
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
     
     // initialize modelview matrix
     glMatrixMode(GL_MODELVIEW_MATRIX);
     glLoadIdentity();
-    gluLookAt(0, 15, 30, 0, 0, 0, 0, 1, 0);
+    double x = 15.0*sin(camphi);
+    double y = 15*sin(camtheta);
+    double z = 15.0*cos(camphi);
+    gluLookAt(x,y,z,0,0,0,0,1,0);
     
     // position of light0
 	GLfloat lightPosition[]={1,1,5,1};
 	glLightfv(GL_LIGHT0, GL_POSITION, lightPosition);
     glLightf(GL_LIGHT0, GL_QUADRATIC_ATTENUATION, 0.04);
+    
+    if (amblight==false) {
+        GLfloat ambient[4] = {0,0,0,0};
+        glLightModelfv(GL_LIGHT_MODEL_AMBIENT,ambient);
+    }
+    else if (amblight==true) {
+        GLfloat ambient[4] = {.2,.2,.2,1};
+        glLightModelfv(GL_LIGHT_MODEL_AMBIENT,ambient);
+    }
+    if (ptlight==false)
+        glDisable(GL_LIGHT0);
+    else if (ptlight==true)
+        glEnable(GL_LIGHT0);
     
     drawFloor();
 //    drawSnowman(1);
@@ -200,7 +322,7 @@ void drawEyes() {
 void drawTeapot() {
     glPushMatrix();
     GLdouble size = 2;
-    glTranslatef(-2, size/2, -2);
+    glTranslatef(-2, size/1.325, -2);
     GLfloat blue[] = {0,0,1};
     glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, blue);
 	glMaterialfv(GL_FRONT, GL_SPECULAR, blue);
