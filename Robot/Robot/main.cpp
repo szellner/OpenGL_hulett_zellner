@@ -30,6 +30,8 @@ void drawFloor();
 void drawTeapot();
 void drawIcosahedron();
 void drawCone(GLdouble base, GLdouble height, GLint slices, GLint stacks);
+void shootLaser();
+
 void menu(int button);
 
 
@@ -65,6 +67,7 @@ float camzoom = 0;
 // light controls
 bool amblight = true;
 bool ptlight = true;
+bool laser = false;
 
 using namespace std;
 
@@ -143,6 +146,13 @@ void init()
     glLightfv(GL_LIGHT0, GL_DIFFUSE, white);   // set diffuse light color
     glLightfv(GL_LIGHT0, GL_SPECULAR, white);  // set specular light color
     
+    // set color of light1 (laser)
+    GLfloat blue[] = {0,0,1};
+    glLightfv(GL_LIGHT1, GL_DIFFUSE, blue);
+    glLightfv(GL_LIGHT1, GL_SPECULAR, blue);
+    glLightf(GL_LIGHT1, GL_SPOT_CUTOFF, 10.0);
+    glLightf(GL_LIGHT1, GL_SPOT_EXPONENT, 2.0);
+    
     // enable depth buffering
     glEnable(GL_DEPTH_TEST);
 }
@@ -164,6 +174,12 @@ void menu(int button) {
             f                     full-screen mode\n\
             i                     zoom in\n\
             o                     zoom out\n\
+            l                     select left arm for movement\n\
+            r                     select right arm for movement\n\
+            h                     select head for movement\n\
+            \n\
+            more fine-grained control of the arm may be found\n\
+            under 'Joint Controls' in the popup menu\n\
             \n"
             << endl;
             break;
@@ -233,6 +249,8 @@ void skeyboard(int key, int x, int y)
 
 void keyboard(unsigned char key, int x, int y)
 {
+    if (key == ' ')
+        laser = !laser;
     if (key == 'h')
         headRotationMode=true;
     if (key == 'l') {
@@ -248,7 +266,7 @@ void keyboard(unsigned char key, int x, int y)
     if (headRotationMode) {
         if (key == 'w' && headVertTheta>-20)
             headVertTheta -= 2.0;
-        if (key == 's' && headVertTheta<30)
+        if (key == 's' && headVertTheta<40)
             headVertTheta += 2.0;
         if (key == 'a' && headHorizTheta>-30)
             headHorizTheta -= 2.0;
@@ -318,7 +336,7 @@ void keyboard(unsigned char key, int x, int y)
         }
 
     }
-    glutPostRedisplay();
+   
     if (key == 'f')
         glutFullScreen ( );
     if (key == 27) {
@@ -336,6 +354,7 @@ void keyboard(unsigned char key, int x, int y)
     gluPerspective(30.0+camzoom, 1.0, 1, 100.0);
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
+    glutPostRedisplay();
 }
 
 void reshape(int width, int height)
@@ -377,6 +396,10 @@ void display()
         glDisable(GL_LIGHT0);
     else if (ptlight==true)
         glEnable(GL_LIGHT0);
+    if (laser==false)
+        glDisable(GL_LIGHT1);
+    else if (laser==true)
+        glEnable(GL_LIGHT1);
     
     drawFloor();
     drawRobot(1);
@@ -496,9 +519,21 @@ void drawEyes() {
     glMateriali(GL_FRONT,GL_SHININESS,0);
     glutSolidSphere(radius/2, 20, 20);
     glTranslatef(0, 0.02, 0.125);
+//    glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, white);
+//    glMaterialfv(GL_FRONT, GL_SPECULAR, white);
+//    glMateriali(GL_FRONT,GL_SHININESS,0);
+    GLfloat laserPos[] = {0,0,radius/2,1};
+//    glutSolidSphere(0.25, 20, 20);
+//    glTranslatef(0, 0, radius/2);
+//    glutSolidSphere(, 20, 20);
+    glLightfv(GL_LIGHT1, GL_POSITION, laserPos);
+    
+    GLfloat laserDir[] = {0,0,-1};
+    glLightfv(GL_LIGHT1, GL_SPOT_DIRECTION, laserDir);
+//    glutSolidSphere(radius/4, 20, 20);
+//    glTranslatef(0,0,-radius/2);
     glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, black);
     glMaterialfv(GL_FRONT, GL_SPECULAR, black);
-    glMateriali(GL_FRONT,GL_SHININESS,0);
     glutSolidSphere(radius/3, 20, 20);
     glPopMatrix();
 }
