@@ -5,7 +5,10 @@
 enum {
     M_HELP,
     M_AMBIENT,
-    M_POINTLIGHT
+    M_POINTLIGHT,
+    R_WRIST,
+    R_ELBOW,
+    R_SHOULDER
 };
 
 
@@ -17,9 +20,10 @@ void keyboard(unsigned char key, int x, int y);
 void init();
 void motion(int x, int y);
 void mouse(int button, int state, int x, int y);
-void drawSnowman(GLfloat radius);
+void drawRobot(GLfloat radius);
 void drawBottom();
-void drawMiddle();
+void drawLegs();
+void drawArms();
 void headAssembly();
 void drawEyes();
 void drawFloor();
@@ -31,14 +35,32 @@ void menu(int button);
 
 int windowWidth=600;
 int windowHeight=600;
-double snowmanX=0;
-double snowmanZ=0;
-double theta=0;
+double robotX=0;
+double robotZ=0;
+double headVertTheta=0;
+double headHorizTheta=0;
+bool headRotationMode=true;
+bool rightSide=true;
+int armSegment = R_ELBOW;
+
+float rightShoulderVertTheta=0;
+float rightShoulderHorizTheta=0;
+float rightElbowVertTheta=0;
+float rightElbowHorizTheta=0;
+float rightWristVertTheta=0;
+float rightWristHorizTheta=0;
+
+float leftShoulderVertTheta=0;
+float leftShoulderHorizTheta=0;
+float leftElbowVertTheta=0;
+float leftElbowHorizTheta=0;
+float leftWristVertTheta=0;
+float leftWristHorizTheta=0;
 
 // camera angles
 float camtheta=0;
 float camphi=0;
-float camzoom = 1;
+float camzoom = 0;
 
 // light controls
 bool amblight = true;
@@ -59,7 +81,7 @@ int main(int argc, char **argv)
     glutInitDisplayMode(GLUT_DOUBLE   | GLUT_RGB  |GLUT_DEPTH);
     
     // create window
-    glutCreateWindow("My Third OpenGL program");
+    glutCreateWindow("Mike Wazowskibot");
     
     // register callback functions
     glutDisplayFunc(display);
@@ -82,7 +104,7 @@ void init()
     // initialize viewing system
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    gluPerspective(20.0, 1.0, 1, 100.0);
+    gluPerspective(30.0, 1.0, 1, 100.0);
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
     
@@ -92,10 +114,17 @@ void init()
     glutAddMenuEntry("Toggle Ambient", M_AMBIENT);
     glutAddMenuEntry("Toggle Point Light", M_POINTLIGHT);
     
+    int armSegments = glutCreateMenu(menu);
+    
+    glutAddMenuEntry("Control Shoulder Joint", R_SHOULDER);
+    glutAddMenuEntry("Control Elbow Joint", R_ELBOW);
+    glutAddMenuEntry("Control Wrist Joint", R_WRIST);
+
     glutCreateMenu(menu);
     glutAddMenuEntry("Help", M_HELP);
     
     glutAddSubMenu("Lighting", lighting);
+    glutAddSubMenu("Joint Controls", armSegments);
     
     glutAttachMenu(GLUT_RIGHT_BUTTON);
     
@@ -113,7 +142,6 @@ void init()
     GLfloat white[] = {1,1,1,0};		      // light color
     glLightfv(GL_LIGHT0, GL_DIFFUSE, white);   // set diffuse light color
     glLightfv(GL_LIGHT0, GL_SPECULAR, white);  // set specular light color
-//    glLightfv(GL_LIGHT0, GL_AMBIENT, ambient);
     
     // enable depth buffering
     glEnable(GL_DEPTH_TEST);
@@ -123,7 +151,7 @@ void menu(int button) {
     switch (button)
     {
         case M_HELP:
-            cerr << "Robot CO\n\
+            cerr << "Robot Controls\n\
             \n\
             action                result\n\
             ------                ------\n\
@@ -138,6 +166,7 @@ void menu(int button) {
             o                     zoom out\n\
             \n"
             << endl;
+            break;
         case M_AMBIENT:
             amblight = !amblight;
             glutPostRedisplay();
@@ -145,6 +174,15 @@ void menu(int button) {
         case M_POINTLIGHT:
             ptlight = !ptlight;
             glutPostRedisplay();
+            break;
+        case R_SHOULDER:
+            armSegment=R_SHOULDER;
+            break;
+        case R_ELBOW:
+            armSegment=R_ELBOW;
+            break;
+        case R_WRIST:
+            armSegment=R_WRIST;
             break;
             
     }
@@ -183,22 +221,103 @@ void mouse(int button, int state, int x, int y) {
 void skeyboard(int key, int x, int y)
 {
     if (key == GLUT_KEY_LEFT)
-        snowmanX--;
+        robotX--;
     if (key == GLUT_KEY_RIGHT)
-        snowmanX++;
+        robotX++;
     if (key == GLUT_KEY_UP)
-        snowmanZ--;
+        robotZ--;
     if (key == GLUT_KEY_DOWN)
-        snowmanZ++;
+        robotZ++;
     glutPostRedisplay();
 }
 
 void keyboard(unsigned char key, int x, int y)
 {
-    if (key == 'w')
-        theta -= 2.0;
-    if (key == 's')
-        theta += 2.0;
+    if (key == 'h')
+        headRotationMode=true;
+    if (key == 'l') {
+        headRotationMode=false;
+        rightSide=false;
+    }
+    if (key == 'r') {
+        headRotationMode=false;
+        rightSide=true;
+    }
+    
+    int angleSwitch=1;
+    if (headRotationMode) {
+        if (key == 'w' && headVertTheta>-20)
+            headVertTheta -= 2.0;
+        if (key == 's' && headVertTheta<30)
+            headVertTheta += 2.0;
+        if (key == 'a' && headHorizTheta>-30)
+            headHorizTheta -= 2.0;
+        if (key == 'd' && headHorizTheta<30)
+            headHorizTheta += 2.0;
+    }
+    else {
+        float* vertTheta;
+        float* horizTheta;
+        switch (armSegment)
+        {
+            case R_SHOULDER:
+                if (rightSide) {
+                    angleSwitch=1;
+                    vertTheta = &rightShoulderVertTheta;
+                    horizTheta = &rightShoulderHorizTheta;
+                    
+                }
+                else {
+                    angleSwitch=-1;
+                    vertTheta = &leftShoulderVertTheta;
+                    horizTheta = &leftShoulderHorizTheta;
+                }
+                break;
+            case R_ELBOW:
+                if (rightSide) {
+                    angleSwitch=1;
+                    vertTheta = &rightElbowVertTheta;
+                    horizTheta = &rightElbowHorizTheta;
+                }
+                else {
+                    angleSwitch=-1;
+                    vertTheta = &leftElbowVertTheta;
+                    horizTheta = &leftElbowHorizTheta;
+                }
+                break;
+            case R_WRIST:
+                if (rightSide) {
+                    angleSwitch=1;
+                    vertTheta = &rightWristVertTheta;
+                    horizTheta = &rightWristHorizTheta;
+                }
+                else {
+                    angleSwitch=-1;
+                    vertTheta = &leftWristVertTheta;
+                    horizTheta = &leftWristHorizTheta;
+                }
+                break;
+                
+        }
+
+        if (key == 'w' && *vertTheta >-30)
+            *vertTheta -= 2.0;
+        if (key == 's' && *vertTheta<30)
+            *vertTheta += 2.0;
+        if (rightSide) {
+            if (key == 'a' && *horizTheta<30)
+                *horizTheta += 2.0*angleSwitch;
+            if (key == 'd' && *horizTheta>-30)
+                *horizTheta -= 2.0*angleSwitch;
+        }
+        else {
+            if (key == 'a' && *horizTheta>-30)
+                *horizTheta += 2.0*angleSwitch;
+            if (key == 'd' && *horizTheta<30)
+                *horizTheta -= 2.0*angleSwitch;
+        }
+
+    }
     glutPostRedisplay();
     if (key == 'f')
         glutFullScreen ( );
@@ -214,7 +333,7 @@ void keyboard(unsigned char key, int x, int y)
     
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    gluPerspective(20.0+camzoom, 1.0, 1, 100.0);
+    gluPerspective(30.0+camzoom, 1.0, 1, 100.0);
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 }
@@ -231,7 +350,7 @@ void reshape(int width, int height)
 void display()
 {
     // clear buffers
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
     
     // initialize modelview matrix
     glMatrixMode(GL_MODELVIEW_MATRIX);
@@ -251,7 +370,7 @@ void display()
         glLightModelfv(GL_LIGHT_MODEL_AMBIENT,ambient);
     }
     else if (amblight==true) {
-        GLfloat ambient[4] = {.2,.2,.2,1};
+        GLfloat ambient[4] = {.4,.4,.4,1};
         glLightModelfv(GL_LIGHT_MODEL_AMBIENT,ambient);
     }
     if (ptlight==false)
@@ -260,47 +379,101 @@ void display()
         glEnable(GL_LIGHT0);
     
     drawFloor();
-//    drawSnowman(1);
-    drawTeapot();
+    drawRobot(1);
+//    drawTeapot();
     drawIcosahedron();
-    drawCone(1,4,20,20);
+//    drawCone(1,4,20,20);
     glutSwapBuffers();
 }
 
-void drawSnowman(GLfloat radius) {
+void drawFloor() {
+    int floorSize = 6;
+    for (int i=-floorSize; i<floorSize; i++) {
+        for (int j=-floorSize; j<floorSize; j++) {
+            if ((i+j)%2 == 0){
+                GLfloat red[] = {0.9,0,0};
+                glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, red);
+                glMaterialfv(GL_FRONT, GL_SPECULAR, red);
+                glMateriali(GL_FRONT,GL_SHININESS,0);
+            }
+            else {
+                GLfloat white[] = {1,1,1};
+                glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, white);
+                glMaterialfv(GL_FRONT, GL_SPECULAR, white);
+                glMateriali(GL_FRONT,GL_SHININESS,0);
+            }
+            glBegin(GL_QUADS);
+            glVertex3f(i+1, 0, j);
+            glVertex3f(i+1, 0, j-1);
+            glVertex3f(i, 0, j-1);
+            glVertex3f(i, 0, j);
+            glEnd();
+            
+        }
+    }
+}
+
+void drawRobot(GLfloat radius) {
     glPushMatrix();
-    glTranslatef(snowmanX,radius,snowmanZ);
-    drawBottom();
-    drawMiddle();
+    glTranslatef(robotX,radius,robotZ);
+//    drawBottom();
+//    drawMiddle();
+    drawLegs();
+    drawArms();
     headAssembly();
     glPopMatrix();
     
 }
 
 void drawBottom() {
+    glPushMatrix();
     GLfloat radius=1;
     GLfloat white[] = {1,1,1};
-    glColor3fv(white);
-    glutSolidSphere(radius, 20, 20);
-}
-
-void drawMiddle() {
-    glPushMatrix();
-    glTranslatef(0, 1.8, 0);
-    GLfloat radius=0.8;
-    GLfloat white[] = {1,1,1};
-    glColor3fv(white);
+    glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, white);
+    glMaterialfv(GL_FRONT, GL_SPECULAR, white);
+    glMateriali(GL_FRONT,GL_SHININESS,0);
     glutSolidSphere(radius, 20, 20);
     glPopMatrix();
 }
 
+void drawLegs() {
+    glPushMatrix();
+    GLfloat radius=0.15;
+    GLfloat green[] = {0,0.8,0};
+    glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, green);
+    glMaterialfv(GL_FRONT, GL_SPECULAR, green);
+    glMateriali(GL_FRONT,GL_SHININESS,0);
+    GLUquadricObj* quadric = gluNewQuadric();
+    glTranslatef(-0.4, 0.75, 0);
+    glRotatef(90, 1, 0, 0);
+    gluCylinder(quadric, radius, radius, 1.6, 20, 20);
+    glTranslatef(0.8, 0, 0);
+    gluCylinder(quadric, radius, radius, 1.6, 20, 20);
+    glPopMatrix();
+    
+    // Feet
+    glPushMatrix();
+    glEnable(GL_POLYGON_OFFSET_FILL);
+    glPolygonOffset(1, -1);
+    glTranslatef(-0.4,-0.85,0);
+    glutSolidSphere(0.15,20,20);
+    glTranslatef(0.8,0,0);
+    glutSolidSphere(0.15,20,20);
+    glDisable(GL_POLYGON_OFFSET_FILL);
+    glPopMatrix();
+    gluDeleteQuadric(quadric);
+}
+
 void headAssembly() {
     glPushMatrix();
-    glTranslatef(0, 3.1, 0);
-    glRotatef(theta, 1, 0, 0);
-    GLfloat radius=0.6;
-    GLfloat white[] = {1,1,1};
-    glColor3fv(white);
+    glTranslatef(0, 2, 0);
+    glRotatef(headVertTheta, 1, 0, 0);
+    glRotatef(headHorizTheta, 0, 1, 0);
+    GLfloat radius=1.5;
+    GLfloat green[] = {0,0.8,0};
+    glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, green);
+    glMaterialfv(GL_FRONT, GL_SPECULAR, green);
+    glMateriali(GL_FRONT,GL_SHININESS,0);
     glutSolidSphere(radius, 20, 20);
     drawEyes();
     glPopMatrix();
@@ -308,12 +481,84 @@ void headAssembly() {
 
 void drawEyes() {
     glPushMatrix();
-    glTranslatef(-0.3, 0.2, 0.51);
-    GLfloat radius=0.05;
+    glTranslatef(0, 0.325, 1);
+    GLfloat radius=0.7;
+    GLfloat white[] = {1,1,1};
+    GLfloat teal[] = {0,0.5,0.45};
     GLfloat black[] = {0,0,0};
-    glColor3fv(black);
+    glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, white);
+    glMaterialfv(GL_FRONT, GL_SPECULAR, white);
+    glMateriali(GL_FRONT,GL_SHININESS,0);
     glutSolidSphere(radius, 20, 20);
-    glTranslatef(0.6, 0, 0);
+    glTranslatef(0, 0.1, 0.4);
+    glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, teal);
+    glMaterialfv(GL_FRONT, GL_SPECULAR, teal);
+    glMateriali(GL_FRONT,GL_SHININESS,0);
+    glutSolidSphere(radius/2, 20, 20);
+    glTranslatef(0, 0.02, 0.125);
+    glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, black);
+    glMaterialfv(GL_FRONT, GL_SPECULAR, black);
+    glMateriali(GL_FRONT,GL_SHININESS,0);
+    glutSolidSphere(radius/3, 20, 20);
+    glPopMatrix();
+}
+
+void drawArms(){
+    glPushMatrix();
+    GLfloat radius=0.15;
+    GLfloat green[] = {0,0.8,0};
+    glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, green);
+    glMaterialfv(GL_FRONT, GL_SPECULAR, green);
+    glMateriali(GL_FRONT,GL_SHININESS,0);
+    GLUquadricObj* quadric = gluNewQuadric();
+    glTranslatef(1.5, 1.75, 0);
+    glRotatef(90, 0, 1, 0);
+    glutSolidSphere(radius, 20, 20);
+    // right upper
+    glRotatef(rightShoulderVertTheta, 1, 0, 0);
+    glRotatef(rightShoulderHorizTheta, 0, 1, 0);
+    gluCylinder(quadric, radius, radius, 0.6, 20, 20);
+    // right elbow
+    glTranslatef(0, 0, 0.6);
+    glutSolidSphere(radius, 20, 20);
+    // right lower
+    glRotatef(rightElbowVertTheta, 1, 0, 0);
+    glRotatef(rightElbowHorizTheta, 0, 1, 0);
+    gluCylinder(quadric, radius, radius, 0.75, 20, 20);
+    // right wrist
+    glTranslatef(0, 0, 0.75);
+    glutSolidSphere(radius, 20, 20);
+    // right hand
+    glRotatef(rightWristVertTheta, 1, 0, 0);
+    glRotatef(rightWristHorizTheta, 0, 1, 0);
+    gluCylinder(quadric, radius, radius, 0.2, 20, 20);
+    glTranslatef(0, 0, 0.2);
+    glutSolidSphere(radius, 20, 20);
+    glPopMatrix();
+    
+    glPushMatrix();
+    glTranslatef(-1.5, 1.75, 0);
+    glRotatef(-90, 0, 1, 0);
+    glutSolidSphere(radius, 20, 20);
+    // left upper
+    glRotatef(leftShoulderVertTheta, 1, 0, 0);
+    glRotatef(leftShoulderHorizTheta, 0, 1, 0);
+    gluCylinder(quadric, radius, radius, 0.6, 20, 20);
+    // left elbow
+    glTranslatef(0, 0, 0.6);
+    // left lower
+    glRotatef(leftElbowVertTheta, 1, 0, 0);
+    glRotatef(leftElbowHorizTheta, 0, 1, 0);
+    glutSolidSphere(radius, 20, 20);
+    gluCylinder(quadric, radius, radius, 0.75, 20, 20);
+    // left wrist
+    glTranslatef(0, 0, 0.75);
+    glutSolidSphere(radius, 20, 20);
+    // left hand
+    glRotatef(leftWristVertTheta, 1, 0, 0);
+    glRotatef(leftWristHorizTheta, 0, 1, 0);
+    gluCylinder(quadric, radius, radius, 0.2, 20, 20);
+    glTranslatef(0, 0, 0.2);
     glutSolidSphere(radius, 20, 20);
     glPopMatrix();
 }
@@ -326,8 +571,7 @@ void drawTeapot() {
     GLfloat blue[] = {0,0,1};
     glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, blue);
 	glMaterialfv(GL_FRONT, GL_SPECULAR, blue);
-	glMateriali(GL_FRONT,GL_SHININESS,0);
-    
+	glMateriali(GL_FRONT,GL_SHININESS,50);
     glutSolidTeapot(size);
     glPopMatrix();
 }
@@ -358,33 +602,6 @@ void drawCone(GLdouble base, GLdouble height, GLint slices, GLint stacks) {
 
 }
 
-void drawFloor() {
-    int floorSize = 6;
-    for (int i=-floorSize; i<floorSize; i++) {
-        for (int j=-floorSize; j<floorSize; j++) {
-            if ((i+j)%2 == 0){
-                GLfloat green[] = {0.9,0,0};
-                glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, green);
-                glMaterialfv(GL_FRONT, GL_SPECULAR, green);
-                glMateriali(GL_FRONT,GL_SHININESS,0);
-            }
-            else {
-                GLfloat white[] = {1,1,1};
-                glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, white);
-                glMaterialfv(GL_FRONT, GL_SPECULAR, white);
-                glMateriali(GL_FRONT,GL_SHININESS,0);
-            }
-            glBegin(GL_QUADS);
-            glVertex3f(i+1, 0, j);
-            glVertex3f(i+1, 0, j-1);
-            glVertex3f(i, 0, j-1);
-            glVertex3f(i, 0, j);
-            glEnd();
-            
-        }
-    }
-    
-}
 
 
 
