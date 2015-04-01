@@ -6,6 +6,7 @@ enum {
     M_HELP,
     M_AMBIENT,
     M_POINTLIGHT,
+    M_PERSPECTIVE,
     R_WRIST,
     R_ELBOW,
     R_SHOULDER
@@ -59,15 +60,21 @@ float leftElbowHorizTheta=0;
 float leftWristVertTheta=0;
 float leftWristHorizTheta=0;
 
-// camera angles
-float camtheta=0;
+// camera controls
+float camtheta=M_PI/6;
 float camphi=0;
-float camzoom = 0;
+float camzoom=0;
+bool campersp=true;
+float charCamPos[3] = {0,0,0};
+float charCenter[3] = {0,0,0};
+float charUp[3] = {0,0,0};
 
 // light controls
 bool amblight = true;
 bool ptlight = true;
 bool laser = false;
+
+
 
 using namespace std;
 
@@ -107,7 +114,7 @@ void init()
     // initialize viewing system
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    gluPerspective(30.0, 1.0, 1, 100.0);
+    gluPerspective(40.0+camzoom, 1.0, 1, 100.0);
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
     
@@ -122,12 +129,17 @@ void init()
     glutAddMenuEntry("Control Shoulder Joint", R_SHOULDER);
     glutAddMenuEntry("Control Elbow Joint", R_ELBOW);
     glutAddMenuEntry("Control Wrist Joint", R_WRIST);
+    
+    int camSettings = glutCreateMenu(menu);
+    
+    glutAddMenuEntry("Toggle Global Perspective", M_PERSPECTIVE);
 
     glutCreateMenu(menu);
     glutAddMenuEntry("Help", M_HELP);
     
     glutAddSubMenu("Lighting", lighting);
     glutAddSubMenu("Joint Controls", armSegments);
+    glutAddSubMenu("Camera Controls", camSettings);
     
     glutAttachMenu(GLUT_RIGHT_BUTTON);
     
@@ -142,7 +154,7 @@ void init()
     glLightModelfv(GL_LIGHT_MODEL_AMBIENT,ambient);
     
     // set color of light0
-    GLfloat white[] = {1,1,1,0};		      // light color
+    GLfloat white[] = {0.5,0.5,0.5,0};		      // light color
     glLightfv(GL_LIGHT0, GL_DIFFUSE, white);   // set diffuse light color
     glLightfv(GL_LIGHT0, GL_SPECULAR, white);  // set specular light color
     
@@ -150,8 +162,8 @@ void init()
     GLfloat blue[] = {0,0,1};
     glLightfv(GL_LIGHT1, GL_DIFFUSE, blue);
     glLightfv(GL_LIGHT1, GL_SPECULAR, blue);
-    glLightf(GL_LIGHT1, GL_SPOT_CUTOFF, 10.0);
-    glLightf(GL_LIGHT1, GL_SPOT_EXPONENT, 2.0);
+    glLightf(GL_LIGHT1, GL_SPOT_CUTOFF, 30.0);
+//    glLightf(GL_LIGHT1, GL_SPOT_EXPONENT, 2.0);
     
     // enable depth buffering
     glEnable(GL_DEPTH_TEST);
@@ -191,6 +203,10 @@ void menu(int button) {
             ptlight = !ptlight;
             glutPostRedisplay();
             break;
+        case M_PERSPECTIVE:
+            campersp = !campersp;
+            glutPostRedisplay();
+            break;
         case R_SHOULDER:
             armSegment=R_SHOULDER;
             break;
@@ -207,7 +223,6 @@ void menu(int button) {
 void motion(int x, int y) {
     static int lastX=-1;
     static int lastY=-1;
-    
     if (lastX==-1 || x==-1) {
         lastX = x;
     }
@@ -215,7 +230,6 @@ void motion(int x, int y) {
         camphi -=(float)(x-lastX)/ (float) windowWidth;
         lastX=x;
     }
-    
     if (lastY==-1 || y==-1 ) {
         lastY = y;
     }
@@ -224,12 +238,13 @@ void motion(int x, int y) {
             camtheta +=(float)(y-lastY)/ (float) windowHeight;
         lastY=y;
     }
-    
     glutPostRedisplay();
 }
 
 void mouse(int button, int state, int x, int y) {
-    if (button==GLUT_LEFT_BUTTON && state==GLUT_DOWN) {
+    cout << "CP " << campersp << endl;
+    if (button==GLUT_LEFT_BUTTON && state==GLUT_DOWN && campersp==true) {
+        cout << "\nWHYY\n" << endl;
         motion(-1,-1);
     }
 }
@@ -351,7 +366,7 @@ void keyboard(unsigned char key, int x, int y)
     
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    gluPerspective(30.0+camzoom, 1.0, 1, 100.0);
+    gluPerspective(40.0+camzoom, 1.0, 1, 100.0);
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
     glutPostRedisplay();
@@ -370,18 +385,20 @@ void display()
 {
     // clear buffers
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-    
     // initialize modelview matrix
     glMatrixMode(GL_MODELVIEW_MATRIX);
-    glLoadIdentity();
-    double x = 15.0*sin(camphi);
-    double y = 15*sin(camtheta);
-    double z = 15.0*cos(camphi);
-    gluLookAt(x,y,z,0,0,0,0,1,0);
     
+    if (campersp==true) {
+        glLoadIdentity();
+        double x = 15.0*sin(camphi);
+        double y = 15*sin(camtheta);
+        double z = 15.0*cos(camphi);
+        gluLookAt(x,y,z,0,0,0,0,1,0);
+    }
+
     // position of light0
-	GLfloat lightPosition[]={1,1,5,1};
-	glLightfv(GL_LIGHT0, GL_POSITION, lightPosition);
+    GLfloat lightPosition[]={1,1,5,1};
+    glLightfv(GL_LIGHT0, GL_POSITION, lightPosition);
     glLightf(GL_LIGHT0, GL_QUADRATIC_ATTENUATION, 0.04);
     
     if (amblight==false) {
@@ -401,15 +418,22 @@ void display()
     else if (laser==true)
         glEnable(GL_LIGHT1);
     
+    else {
+        glLoadIdentity();
+        gluLookAt(charCamPos[0],charCamPos[1],charCamPos[2], -charCenter[0],-charCenter[1],-charCenter[2], 0,1,0);
+    }
+    
+    glNormal3f(0,1,0);
     drawFloor();
     drawRobot(1);
-//    drawTeapot();
+    drawTeapot();
     drawIcosahedron();
-//    drawCone(1,4,20,20);
+    drawCone(1,4,20,20);
     glutSwapBuffers();
 }
 
 void drawFloor() {
+    glPushMatrix();
     int floorSize = 6;
     for (int i=-floorSize; i<floorSize; i++) {
         for (int j=-floorSize; j<floorSize; j++) {
@@ -434,6 +458,9 @@ void drawFloor() {
             
         }
     }
+    glTranslatef(0, 4, 10);
+    glutSolidCube(4);
+    glPopMatrix();
 }
 
 void drawRobot(GLfloat radius) {
@@ -519,22 +546,32 @@ void drawEyes() {
     glMateriali(GL_FRONT,GL_SHININESS,0);
     glutSolidSphere(radius/2, 20, 20);
     glTranslatef(0, 0.02, 0.125);
-//    glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, white);
-//    glMaterialfv(GL_FRONT, GL_SPECULAR, white);
-//    glMateriali(GL_FRONT,GL_SHININESS,0);
     GLfloat laserPos[] = {0,0,radius/2,1};
-//    glutSolidSphere(0.25, 20, 20);
-//    glTranslatef(0, 0, radius/2);
-//    glutSolidSphere(, 20, 20);
     glLightfv(GL_LIGHT1, GL_POSITION, laserPos);
     
-    GLfloat laserDir[] = {0,0,-1};
+    // Set the direction of the laser
+    GLfloat laserDir[] = {0,0,1};
     glLightfv(GL_LIGHT1, GL_SPOT_DIRECTION, laserDir);
-//    glutSolidSphere(radius/4, 20, 20);
-//    glTranslatef(0,0,-radius/2);
     glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, black);
     glMaterialfv(GL_FRONT, GL_SPECULAR, black);
     glutSolidSphere(radius/3, 20, 20);
+    
+    // Set the character camera position to the center of the eyebal
+    GLfloat modelviewmatrix[16];
+    glGetFloatv(GL_MODELVIEW_MATRIX, modelviewmatrix);
+    for (int i=0; i<16; i++)
+        cout << modelviewmatrix[i] << endl;
+    charCamPos[0] = modelviewmatrix[3];
+    charCamPos[1] = modelviewmatrix[7];
+    charCamPos[2] = modelviewmatrix[11];
+    charCenter[0] = modelviewmatrix[2]+modelviewmatrix[3];
+    charCenter[1] = modelviewmatrix[6]+modelviewmatrix[7];
+    charCenter[2] = modelviewmatrix[10]+modelviewmatrix[11];
+    
+//    cout << "changed" << endl;
+    cout << "charCamPos" << charCamPos[0] << " "<< charCamPos[1] << " "<< charCamPos[2] << " " << endl;
+    cout << "charcenter" << charCenter[0] << " "<< charCenter[1] << " "<< charCenter[2] << " " << endl;
+//
     glPopMatrix();
 }
 
