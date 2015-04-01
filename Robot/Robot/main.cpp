@@ -65,9 +65,6 @@ float camtheta=M_PI/6;
 float camphi=0;
 float camzoom=0;
 bool campersp=true;
-float charCamPos[3] = {0,0,0};
-float charCenter[3] = {0,0,0};
-float charUp[3] = {0,0,0};
 
 // light controls
 bool amblight = true;
@@ -183,15 +180,28 @@ void menu(int button) {
             down arrow            move robot down\n\
             left arrow            move robot left\n\
             right arrow           move robot right\n\
-            f                     full-screen mode\n\
+            f                     enter full-screen mode\n\
+            esc                   exit full-screen mode\n\
             i                     zoom in\n\
             o                     zoom out\n\
             l                     select left arm for movement\n\
             r                     select right arm for movement\n\
             h                     select head for movement\n\
+            w                     rotate selected object up\n\
+            a                     rotate selected object left\n\
+            s                     rotate selected object down\n\
+            d                     rotate selected object right\n\
+            spacebar              toggle the spotlight\n\
             \n\
             more fine-grained control of the arm may be found\n\
             under 'Joint Controls' in the popup menu\n\
+            \n\
+            switch to the robot's perspective by going to\n\
+            'Camera Controls' and selecting 'Toggle Global\n\
+            Perspective'\n\
+            \n\
+            the ambient and point lights may be toggled\n\
+            by selecting either option under 'Lighting'\n\
             \n"
             << endl;
             break;
@@ -395,6 +405,13 @@ void display()
         double z = 15.0*cos(camphi);
         gluLookAt(x,y,z,0,0,0,0,1,0);
     }
+    if (campersp == false) {
+        glLoadIdentity();
+        double v = headVertTheta * M_PI / 180;
+        double h = headHorizTheta * M_PI / 180;
+        gluLookAt(robotX, 3, robotZ+1, robotX+sin(h)*cos(v), 3-sin(v), robotZ+2+cos(h)*cos(v), 0, 1, 0);
+    }
+
 
     // position of light0
     GLfloat lightPosition[]={1,1,5,1};
@@ -417,11 +434,7 @@ void display()
         glDisable(GL_LIGHT1);
     else if (laser==true)
         glEnable(GL_LIGHT1);
-    
-    else {
-        glLoadIdentity();
-        gluLookAt(charCamPos[0],charCamPos[1],charCamPos[2], -charCenter[0],-charCenter[1],-charCenter[2], 0,1,0);
-    }
+
     
     glNormal3f(0,1,0);
     drawFloor();
@@ -459,7 +472,6 @@ void drawFloor() {
         }
     }
     glTranslatef(0, 4, 10);
-    glutSolidCube(4);
     glPopMatrix();
 }
 
@@ -555,23 +567,6 @@ void drawEyes() {
     glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, black);
     glMaterialfv(GL_FRONT, GL_SPECULAR, black);
     glutSolidSphere(radius/3, 20, 20);
-    
-    // Set the character camera position to the center of the eyebal
-    GLfloat modelviewmatrix[16];
-    glGetFloatv(GL_MODELVIEW_MATRIX, modelviewmatrix);
-    for (int i=0; i<16; i++)
-        cout << modelviewmatrix[i] << endl;
-    charCamPos[0] = modelviewmatrix[3];
-    charCamPos[1] = modelviewmatrix[7];
-    charCamPos[2] = modelviewmatrix[11];
-    charCenter[0] = modelviewmatrix[2]+modelviewmatrix[3];
-    charCenter[1] = modelviewmatrix[6]+modelviewmatrix[7];
-    charCenter[2] = modelviewmatrix[10]+modelviewmatrix[11];
-    
-//    cout << "changed" << endl;
-    cout << "charCamPos" << charCamPos[0] << " "<< charCamPos[1] << " "<< charCamPos[2] << " " << endl;
-    cout << "charcenter" << charCenter[0] << " "<< charCenter[1] << " "<< charCenter[2] << " " << endl;
-//
     glPopMatrix();
 }
 
