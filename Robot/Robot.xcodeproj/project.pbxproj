@@ -12,6 +12,10 @@
 		053F12E41AB240960027A522 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 053F12E31AB240960027A522 /* Cocoa.framework */; };
 		053F12E61AB2409C0027A522 /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 053F12E51AB2409C0027A522 /* OpenGL.framework */; };
 		053F12E81AB240A10027A522 /* GLUT.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 053F12E71AB240A10027A522 /* GLUT.framework */; };
+		05A61CD21ACDEF010022B461 /* image_DXT.c in Sources */ = {isa = PBXBuildFile; fileRef = 05A61CC81ACDEF010022B461 /* image_DXT.c */; };
+		05A61CD31ACDEF010022B461 /* image_helper.c in Sources */ = {isa = PBXBuildFile; fileRef = 05A61CCA1ACDEF010022B461 /* image_helper.c */; };
+		05A61CD41ACDEF010022B461 /* SOIL.c in Sources */ = {isa = PBXBuildFile; fileRef = 05A61CCC1ACDEF010022B461 /* SOIL.c */; };
+		05A61CD51ACDEF010022B461 /* stb_image_aug.c in Sources */ = {isa = PBXBuildFile; fileRef = 05A61CCE1ACDEF010022B461 /* stb_image_aug.c */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -34,6 +38,22 @@
 		053F12E31AB240960027A522 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
 		053F12E51AB2409C0027A522 /* OpenGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGL.framework; path = System/Library/Frameworks/OpenGL.framework; sourceTree = SDKROOT; };
 		053F12E71AB240A10027A522 /* GLUT.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GLUT.framework; path = System/Library/Frameworks/GLUT.framework; sourceTree = SDKROOT; };
+		05A61CC51ACDEF010022B461 /* cat.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = cat.png; sourceTree = "<group>"; };
+		05A61CC61ACDEF010022B461 /* glass.tga */ = {isa = PBXFileReference; lastKnownFileType = file; path = glass.tga; sourceTree = "<group>"; };
+		05A61CC81ACDEF010022B461 /* image_DXT.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = image_DXT.c; sourceTree = "<group>"; };
+		05A61CC91ACDEF010022B461 /* image_DXT.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = image_DXT.h; sourceTree = "<group>"; };
+		05A61CCA1ACDEF010022B461 /* image_helper.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = image_helper.c; sourceTree = "<group>"; };
+		05A61CCB1ACDEF010022B461 /* image_helper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = image_helper.h; sourceTree = "<group>"; };
+		05A61CCC1ACDEF010022B461 /* SOIL.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SOIL.c; sourceTree = "<group>"; };
+		05A61CCD1ACDEF010022B461 /* SOIL.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SOIL.h; sourceTree = "<group>"; };
+		05A61CCE1ACDEF010022B461 /* stb_image_aug.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = stb_image_aug.c; sourceTree = "<group>"; };
+		05A61CCF1ACDEF010022B461 /* stb_image_aug.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = stb_image_aug.h; sourceTree = "<group>"; };
+		05A61CD01ACDEF010022B461 /* stbi_DDS_aug.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = stbi_DDS_aug.h; sourceTree = "<group>"; };
+		05A61CD11ACDEF010022B461 /* stbi_DDS_aug_c.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = stbi_DDS_aug_c.h; sourceTree = "<group>"; };
+		05A61CD61ACDFE2D0022B461 /* clouds.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = clouds.jpg; sourceTree = "<group>"; };
+		05A61CD91ACDFFD80022B461 /* greenwater.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = greenwater.jpg; sourceTree = "<group>"; };
+		05A61CDA1ACDFFD80022B461 /* newspace.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = newspace.jpg; sourceTree = "<group>"; };
+		05A61CDB1AD1E92F0022B461 /* diamond.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = diamond.jpg; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -73,9 +93,33 @@
 			isa = PBXGroup;
 			children = (
 				053F12DA1AB2408B0027A522 /* main.cpp */,
+				05A61CDB1AD1E92F0022B461 /* diamond.jpg */,
+				05A61CD91ACDFFD80022B461 /* greenwater.jpg */,
+				05A61CDA1ACDFFD80022B461 /* newspace.jpg */,
+				05A61CD61ACDFE2D0022B461 /* clouds.jpg */,
+				05A61CC51ACDEF010022B461 /* cat.png */,
+				05A61CC61ACDEF010022B461 /* glass.tga */,
+				05A61CC71ACDEF010022B461 /* SOILArchive */,
 				053F12DC1AB2408B0027A522 /* Robot.1 */,
 			);
 			path = Robot;
+			sourceTree = "<group>";
+		};
+		05A61CC71ACDEF010022B461 /* SOILArchive */ = {
+			isa = PBXGroup;
+			children = (
+				05A61CC81ACDEF010022B461 /* image_DXT.c */,
+				05A61CC91ACDEF010022B461 /* image_DXT.h */,
+				05A61CCA1ACDEF010022B461 /* image_helper.c */,
+				05A61CCB1ACDEF010022B461 /* image_helper.h */,
+				05A61CCC1ACDEF010022B461 /* SOIL.c */,
+				05A61CCD1ACDEF010022B461 /* SOIL.h */,
+				05A61CCE1ACDEF010022B461 /* stb_image_aug.c */,
+				05A61CCF1ACDEF010022B461 /* stb_image_aug.h */,
+				05A61CD01ACDEF010022B461 /* stbi_DDS_aug.h */,
+				05A61CD11ACDEF010022B461 /* stbi_DDS_aug_c.h */,
+			);
+			path = SOILArchive;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -128,6 +172,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				05A61CD31ACDEF010022B461 /* image_helper.c in Sources */,
+				05A61CD51ACDEF010022B461 /* stb_image_aug.c in Sources */,
+				05A61CD21ACDEF010022B461 /* image_DXT.c in Sources */,
+				05A61CD41ACDEF010022B461 /* SOIL.c in Sources */,
 				053F12DB1AB2408B0027A522 /* main.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -238,6 +286,7 @@
 				053F12E21AB2408B0027A522 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

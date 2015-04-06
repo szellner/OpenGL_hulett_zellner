@@ -74,8 +74,6 @@ void motion(int x, int y) {
             lastY=y;
         }
 
-    
-
     glutPostRedisplay();
     
 }

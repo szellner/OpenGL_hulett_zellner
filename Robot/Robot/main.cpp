@@ -1,5 +1,6 @@
 #include <iostream>
 #include <glut/glut.h>
+#include "SOIL.h"
 #include <math.h>
 
 enum {
@@ -7,15 +8,29 @@ enum {
     M_AMBIENT,
     M_POINTLIGHT,
     M_PERSPECTIVE,
+    M_ROLLERCOASTER,
+    M_SPACE,
+    M_SKY,
+    M_OCEAN,
+    M_CRYSTAL,
+    M_FOG,
     R_WRIST,
     R_ELBOW,
     R_SHOULDER
 };
 
+#define MAX_NO_TEXTURES 1
+#define MAX_FILE_NAME 512
+char textureFileNameWithPath[MAX_FILE_NAME];
+GLuint textureIds[MAX_NO_TEXTURES];
+
 
 // function prototypes
+int LoadGLTextures(char* fname);
 void display(void);
+void ride();
 void reshape(int width, int height);
+void idle(void);
 void skeyboard(int key, int x, int y);
 void keyboard(unsigned char key, int x, int y);
 void init();
@@ -30,11 +45,14 @@ void drawEyes();
 void drawFloor();
 void drawTeapot();
 void drawIcosahedron();
+void drawRollercoaster();
+void drawCurve(int startPoint);
 void drawCone(GLdouble base, GLdouble height, GLint slices, GLint stacks);
+void drawCube();
+void drawFog();
 void shootLaser();
 
 void menu(int button);
-
 
 int windowWidth=600;
 int windowHeight=600;
@@ -71,13 +89,104 @@ bool amblight = true;
 bool ptlight = true;
 bool laser = false;
 
+// rotation parameters
+float xrot=0;
+float yrot=0;
+float zrot=0;
 
+// environment globals
+int textures[4];
+bool fog=false;
+
+// rollercoaster globals
+float curveVerts[25][3] = {
+    {35, -27,-18},
+    {46.1538, -27.8462,-24.8462},
+    {65.3077, -26.6923,-17.6923},
+    {61.4615, -27.5385,12.4615},
+    {57.6154, -28.3846,42.6154},
+    {21.7692, -3.23077,30.7692},
+    {17.9231, 3.92308,26.9231},
+    {14.0769, 11.0769,23.0769},
+    {8.23077, 21.2308,19.2308},
+    {4.38461, 17.3846,15.3846},
+    {0.538462, 13.5385,11.5385},
+    {-3.30769, 8.69231,7.69231},
+    {-5.15385, 3.84615,3.84615},
+    {-7, -1,0},
+    {4.15385, -12.8462,-18.8462},
+    {0.307693, -16.6923,-22.6923},
+    {-3.53846, -20.5385,-26.5385},
+    {-38.3846, -14.3846,-0.384615},
+    {-43.2308, -18.2308,-16.2308},
+    {-48.0769, -22.0769,-32.0769},
+    {11.0769, -20.9231,-77.9231},
+    {22.2308, -30.7692,-77.7692},
+    {33.3846, -40.6154,-77.6154},
+    {47.5385, -38.4615,-9.46154},
+    {-27.3077, -42.3077,-53.3077}};
+bool rollercoaster=false;
+float curveDrawStep=0;
+float curveCamStep=0;
+float rcx=0;
+float rcy=0;
+float rcz=0;
+bool storeNext=false;
+float nextx=0;
+float nexty=0;
+float nextz=0;
 
 using namespace std;
 
-int main(int argc, char **argv)
+bool makeFnameWithPath(char* fname, char* pathName, char* fnameWithPath)
 {
     
+    int last = -1;
+    for (int i = 0; last==-1 && i < MAX_FILE_NAME; ++i) {
+        if (pathName[i] == 0) {
+            last=i;
+            if (i>0 && pathName[i-1]!='/') {
+                fnameWithPath[i]='/';
+                last ++;
+            }
+        }
+        else {
+            fnameWithPath[i]=pathName[i];
+        }
+    }
+    
+    // if the pathname exceeds our space bound we return false
+    // we could make this more robust by dynamically allocating the right amout of space!
+    if (last == -1) {
+        return false;
+    }
+    
+    bool done=false;
+    
+    for (int i=0; !done && i<MAX_FILE_NAME; ++i) {
+        fnameWithPath[last+i] = fname[i];
+        if (fname[i]==0) {
+            done=true;
+        }
+    }
+    return done;
+}
+
+int main(int argc, char **argv)
+{
+//    // name of texture file
+//    char* fname="clouds.jpg";
+//    
+//    // texture file is expected to be in build directory (i.e. argv[0]) unless the project folder is given as
+//    // a command line argument
+//    // edit the project scheme to add command line argument $SRSROOT (which xcode knows as the project dir)
+//    if (argc==2) {
+//        makeFnameWithPath(fname, argv[1], textureFileNameWithPath);
+//    }
+//    else {
+//        makeFnameWithPath(fname, argv[0], textureFileNameWithPath);
+//    }
+
     // initialize glut
     glutInit(&argc, argv);
     
@@ -85,7 +194,7 @@ int main(int argc, char **argv)
     glutInitWindowSize(windowWidth,windowHeight);
     
     // establish glut display parameters
-    glutInitDisplayMode(GLUT_DOUBLE   | GLUT_RGB  |GLUT_DEPTH);
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB  | GLUT_DEPTH | GLUT_STENCIL);
     
     // create window
     glutCreateWindow("Mike Wazowskibot");
@@ -97,7 +206,7 @@ int main(int argc, char **argv)
     glutKeyboardFunc(keyboard);
     glutMouseFunc(mouse);
     glutMotionFunc(motion);
-
+    glutIdleFunc(idle);
     // initalize opengl parameters
     init();
     
@@ -117,31 +226,38 @@ void init()
     
     // initialize menu system
     int lighting = glutCreateMenu(menu);
-    
     glutAddMenuEntry("Toggle Ambient", M_AMBIENT);
     glutAddMenuEntry("Toggle Point Light", M_POINTLIGHT);
     
     int armSegments = glutCreateMenu(menu);
-    
     glutAddMenuEntry("Control Shoulder Joint", R_SHOULDER);
     glutAddMenuEntry("Control Elbow Joint", R_ELBOW);
     glutAddMenuEntry("Control Wrist Joint", R_WRIST);
     
     int camSettings = glutCreateMenu(menu);
-    
     glutAddMenuEntry("Toggle Global Perspective", M_PERSPECTIVE);
-
+    glutAddMenuEntry("Rollercoaster Mode", M_ROLLERCOASTER);
+    
+    int environ = glutCreateMenu(menu);
+    glutAddMenuEntry("Space", M_SPACE);
+    glutAddMenuEntry("Sky", M_SKY);
+    glutAddMenuEntry("Ocean", M_OCEAN);
+    glutAddMenuEntry("Crystal", M_CRYSTAL);
+    glutAddMenuEntry("Toggle Fog", M_FOG);
+    
     glutCreateMenu(menu);
     glutAddMenuEntry("Help", M_HELP);
     
     glutAddSubMenu("Lighting", lighting);
     glutAddSubMenu("Joint Controls", armSegments);
     glutAddSubMenu("Camera Controls", camSettings);
+    glutAddSubMenu("Environment", environ);
     
     glutAttachMenu(GLUT_RIGHT_BUTTON);
     
     // initialize background color to black
     glClearColor(0,0,0,0);
+    glClearStencil(0.0);
     
     // enable lighting
     glEnable(GL_LIGHT0);
@@ -164,6 +280,26 @@ void init()
     
     // enable depth buffering
     glEnable(GL_DEPTH_TEST);
+    // load textures
+    textures[0] = LoadGLTextures("/Users/stephaniezellner/Desktop/OpenGL_hulett_zellner/Robot/Robot/newspace.jpg");
+    textures[1] = LoadGLTextures("/Users/stephaniezellner/Desktop/OpenGL_hulett_zellner/Robot/Robot/clouds.jpg");
+    textures[2] = LoadGLTextures("/Users/stephaniezellner/Desktop/OpenGL_hulett_zellner/Robot/Robot/greenwater.jpg");
+    textures[3] = LoadGLTextures("/Users/stephaniezellner/Desktop/OpenGL_hulett_zellner/Robot/Robot/diamond.jpg");
+    glBindTexture(GL_TEXTURE_2D, textures[2]);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_DECAL);
+    
+    // fog parameters
+    GLfloat fogColor[4] = {0.9,0.9,0.9,1.0};
+    glFogi(GL_FOG_MODE, GL_EXP2);
+    glFogfv(GL_FOG_COLOR, fogColor);
+    glFogf(GL_FOG_DENSITY, 0.05);
+    glHint(GL_FOG_HINT, GL_FASTEST);
+    glFogf(GL_FOG_START, 0);
+    glFogf(GL_FOG_END, 1);
 }
 
 void menu(int button) {
@@ -217,6 +353,25 @@ void menu(int button) {
             campersp = !campersp;
             glutPostRedisplay();
             break;
+        case M_ROLLERCOASTER:
+            rollercoaster = true;
+            ride();
+            break;
+        case M_SPACE:
+            glBindTexture(GL_TEXTURE_2D, textures[0]);
+            break;
+        case M_SKY:
+            glBindTexture(GL_TEXTURE_2D, textures[1]);
+            break;
+        case M_OCEAN:
+            glBindTexture(GL_TEXTURE_2D, textures[2]);
+            break;
+        case M_CRYSTAL:
+            glBindTexture(GL_TEXTURE_2D, textures[3]);
+            break;
+        case M_FOG:
+            fog = !fog;
+            break;
         case R_SHOULDER:
             armSegment=R_SHOULDER;
             break;
@@ -227,7 +382,24 @@ void menu(int button) {
             armSegment=R_WRIST;
             break;
             
+            
     }
+}
+
+void ride() {
+    curveCamStep = 0;
+    rcx = 0.1*curveVerts[0][0];
+    rcy = 0.1*curveVerts[0][1];
+    rcz = 0.1*curveVerts[0][2];
+    // depends on the number of samples being taken
+    while (curveCamStep<8.0) {
+        cout << "camstep " << curveCamStep << endl;
+        curveCamStep += 0.01;
+        display();
+    }
+    // end of ride signals reset to previous camera settings
+    rollercoaster=false;
+    glutPostRedisplay();
 }
 
 void motion(int x, int y) {
@@ -252,11 +424,19 @@ void motion(int x, int y) {
 }
 
 void mouse(int button, int state, int x, int y) {
-    cout << "CP " << campersp << endl;
     if (button==GLUT_LEFT_BUTTON && state==GLUT_DOWN && campersp==true) {
-        cout << "\nWHYY\n" << endl;
         motion(-1,-1);
     }
+}
+
+void idle(void)
+{
+    // update rotation
+    xrot+=0.006f;
+    yrot+=0.004f;
+    zrot+=0.008f;
+    glutPostRedisplay();
+    
 }
 
 void skeyboard(int key, int x, int y)
@@ -391,6 +571,18 @@ void reshape(int width, int height)
     
 }
 
+int LoadGLTextures(char* fname)
+{
+    int textureId = SOIL_load_OGL_texture(fname, SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_INVERT_Y);
+    if(textureId == 0) {
+        cerr << "Texture failed to load." << endl;
+        return 0;
+    }
+    
+    return textureId;
+}
+
+
 void display()
 {
     // clear buffers
@@ -398,20 +590,24 @@ void display()
     // initialize modelview matrix
     glMatrixMode(GL_MODELVIEW_MATRIX);
     
-    if (campersp==true) {
+    if (campersp==true && !rollercoaster) {
         glLoadIdentity();
         double x = 15.0*sin(camphi);
         double y = 15*sin(camtheta);
         double z = 15.0*cos(camphi);
         gluLookAt(x,y,z,0,0,0,0,1,0);
     }
-    if (campersp == false) {
+    if (campersp == false && !rollercoaster) {
         glLoadIdentity();
         double v = headVertTheta * M_PI / 180;
         double h = headHorizTheta * M_PI / 180;
         gluLookAt(robotX, 3, robotZ+1, robotX+sin(h)*cos(v), 3-sin(v), robotZ+2+cos(h)*cos(v), 0, 1, 0);
     }
-
+    if (rollercoaster) {
+        glLoadIdentity();
+        cout << "rcx/y/z " << rcx << "/" << rcy << "/" << rcz << endl;
+        gluLookAt(rcx+6,rcy+5,rcz,nextx+6,nexty+5,nextz,0,1,0);
+    }
 
     // position of light0
     GLfloat lightPosition[]={1,1,5,1};
@@ -434,20 +630,151 @@ void display()
         glDisable(GL_LIGHT1);
     else if (laser==true)
         glEnable(GL_LIGHT1);
-
+    if (fog==true)
+        glEnable(GL_FOG);
+    else if (fog==false)
+        glDisable(GL_FOG);
+    
+    glLineWidth(4);
     
     glNormal3f(0,1,0);
     drawFloor();
     drawRobot(1);
     drawTeapot();
+    drawCube();
     drawIcosahedron();
     drawCone(1,4,20,20);
+    drawRollercoaster();
     glutSwapBuffers();
+}
+
+void drawCurve(int startPoint) {
+    
+    if (startPoint<0 || startPoint+2>=25)
+        return;
+    
+    float coeff[3][4];
+    float basisMatrix[4][4] = {
+        {-1,  3, -3, 1},
+        { 3, -6,  3, 0},
+        {-3,  3,  0, 0},
+        { 1,  0,  0, 0}};
+    /*  compute coefficients for the x,y, and z cubic polynomials */
+    for (int d=0; d<3; d++) { // compute for dimension x, y, and z
+        for (int i=0; i< 4; i++) { // compute coeff[d][i]
+            coeff[d][i]=0;
+            for (int j=0;j<4;j++) {
+                coeff[d][i] += basisMatrix[i][j] * curveVerts[j+startPoint][d];
+            }
+        }
+    }
+    
+    /*  approximate the curve by a line strip through sample points	*/
+    glBegin(GL_LINE_STRIP);
+    float numSamples=20;
+    float t=0;
+    while(t<1) {
+        curveDrawStep += 0.05;
+        float polyVal[3];
+        for (int i=0;i<3;i++) {
+            polyVal[i] = coeff[i][0]*t*t*t + coeff[i][1]*t*t + coeff[i][2]*t + coeff[i][3];
+        }
+        glVertex3f(0.1*polyVal[0], 0.1*polyVal[1], 0.1*polyVal[2]);
+        if (rollercoaster)
+            cout << curveDrawStep << "/" << curveCamStep << endl;
+        if (fabs(curveDrawStep-curveCamStep)<0.0001){
+            storeNext=true;
+            cout << "equal " << curveDrawStep << endl;
+            rcx=0.1*polyVal[0];
+            rcy=0.1*polyVal[1];
+            rcz=0.1*polyVal[2];
+        }
+        else if (storeNext) {
+            nextx=0.1*polyVal[0];
+            nexty=0.1*polyVal[1];
+            nextz=0.1*polyVal[2];
+            storeNext=false;
+        }
+        
+        t += 1.0/numSamples;
+    }
+    /* the curve ends at a control point when t=1  				*/
+    /* because the increment 1.0/numSamples  has finite precision	*/
+    /* t probably won't hit 1.0 exactly, so we force it			*/
+        
+    glVertex3f(0.1*curveVerts[startPoint+3][0],0.1*curveVerts[startPoint+3][1],0.1*curveVerts[startPoint+3][2]);
+    glEnd();
+    
+}
+
+void drawRollercoaster() {
+    glPushMatrix();
+    glTranslatef(6, 5, 0);
+    GLfloat yellow[] = {1,1,0};
+    glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, yellow);
+	glMaterialfv(GL_FRONT, GL_SPECULAR, yellow);
+	glMateriali(GL_FRONT,GL_SHININESS,0);
+    int numCurves = 8;
+    curveDrawStep = 0.0;
+    for (int i=0; i<numCurves; i++)
+    {
+        drawCurve(3*i);
+    }
+    
+    // restore to camera view
+    glPopMatrix();
+}
+
+
+void drawCube () {
+    float cubesize = 32;
+    glEnable(GL_TEXTURE_2D);
+    glPushMatrix();
+    glTranslatef(0,2,0);
+    // rotate cube
+    glRotatef ( xrot, 1.0, 0.0, 0.0 );
+    glRotatef ( yrot, 0.0, 1.0, 0.0 );
+    glRotatef ( zrot, 0.0, 0.0, 1.0 );
+    glBegin(GL_QUADS);
+    // front face
+    glTexCoord2f(0.0f, 0.0f); glVertex3f(-cubesize, -cubesize,  cubesize);
+    glTexCoord2f(1.0f, 0.0f); glVertex3f( cubesize, -cubesize,  cubesize);
+    glTexCoord2f(1.0f, 1.0f); glVertex3f( cubesize,  cubesize,  cubesize);
+    glTexCoord2f(0.0f, 1.0f); glVertex3f(-cubesize,  cubesize,  cubesize);
+    // Back Face
+    glTexCoord2f(1.0f, 0.0f); glVertex3f(-cubesize, -cubesize, -cubesize);
+    glTexCoord2f(1.0f, 1.0f); glVertex3f(-cubesize,  cubesize, -cubesize);
+    glTexCoord2f(0.0f, 1.0f); glVertex3f( cubesize,  cubesize, -cubesize);
+    glTexCoord2f(0.0f, 0.0f); glVertex3f( cubesize, -cubesize, -cubesize);
+    // Top Face
+    glTexCoord2f(0.0f, 1.0f); glVertex3f(-cubesize,  cubesize, -cubesize);
+    glTexCoord2f(0.0f, 0.0f); glVertex3f(-cubesize,  cubesize,  cubesize);
+    glTexCoord2f(1.0f, 0.0f); glVertex3f( cubesize,  cubesize,  cubesize);
+    glTexCoord2f(1.0f, 1.0f); glVertex3f( cubesize,  cubesize, -cubesize);
+    // Bottom Face
+    glTexCoord2f(1.0f, 1.0f); glVertex3f(-cubesize, -cubesize, -cubesize);
+    glTexCoord2f(0.0f, 1.0f); glVertex3f( cubesize, -cubesize, -cubesize);
+    glTexCoord2f(0.0f, 0.0f); glVertex3f( cubesize, -cubesize,  cubesize);
+    glTexCoord2f(1.0f, 0.0f); glVertex3f(-cubesize, -cubesize,  cubesize);
+    // Right face
+    glTexCoord2f(1.0f, 0.0f); glVertex3f( cubesize, -cubesize, -cubesize);
+    glTexCoord2f(1.0f, 1.0f); glVertex3f( cubesize,  cubesize, -cubesize);
+    glTexCoord2f(0.0f, 1.0f); glVertex3f( cubesize,  cubesize,  cubesize);
+    glTexCoord2f(0.0f, 0.0f); glVertex3f( cubesize, -cubesize,  cubesize);
+    // Left Face
+    glTexCoord2f(0.0f, 0.0f); glVertex3f(-cubesize, -cubesize, -cubesize);
+    glTexCoord2f(1.0f, 0.0f); glVertex3f(-cubesize, -cubesize,  cubesize);
+    glTexCoord2f(1.0f, 1.0f); glVertex3f(-cubesize,  cubesize,  cubesize);
+    glTexCoord2f(0.0f, 1.0f); glVertex3f(-cubesize,  cubesize, -cubesize);
+    glEnd();
+    glPopMatrix();
+    glDisable(GL_TEXTURE_2D);
+    
 }
 
 void drawFloor() {
     glPushMatrix();
-    int floorSize = 6;
+    int floorSize = 8;
     for (int i=-floorSize; i<floorSize; i++) {
         for (int j=-floorSize; j<floorSize; j++) {
             if ((i+j)%2 == 0){
@@ -556,6 +883,7 @@ void drawEyes() {
     glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, teal);
     glMaterialfv(GL_FRONT, GL_SPECULAR, teal);
     glMateriali(GL_FRONT,GL_SHININESS,0);
+
     glutSolidSphere(radius/2, 20, 20);
     glTranslatef(0, 0.02, 0.125);
     GLfloat laserPos[] = {0,0,radius/2,1};
@@ -634,7 +962,7 @@ void drawArms(){
 void drawTeapot() {
     glPushMatrix();
     GLdouble size = 2;
-    glTranslatef(-2, size/1.325, -2);
+    glTranslatef(-4, size/1.325, -4);
     GLfloat blue[] = {0,0,1};
     glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, blue);
 	glMaterialfv(GL_FRONT, GL_SPECULAR, blue);
@@ -666,7 +994,6 @@ void drawCone(GLdouble base, GLdouble height, GLint slices, GLint stacks) {
 	glMateriali(GL_FRONT,GL_SHININESS,0);
     glutSolidCone(base, height, slices, stacks);
     glPopMatrix();
-
 }
 
 
