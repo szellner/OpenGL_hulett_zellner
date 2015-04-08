@@ -32,6 +32,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		05215D841AD4D73800AFF701 /* deathstar.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = deathstar.png; sourceTree = "<group>"; };
 		053F12D71AB2408B0027A522 /* Robot */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Robot; sourceTree = BUILT_PRODUCTS_DIR; };
 		053F12DA1AB2408B0027A522 /* main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
 		053F12DC1AB2408B0027A522 /* Robot.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = Robot.1; sourceTree = "<group>"; };
@@ -93,6 +94,7 @@
 			isa = PBXGroup;
 			children = (
 				053F12DA1AB2408B0027A522 /* main.cpp */,
+				05215D841AD4D73800AFF701 /* deathstar.png */,
 				05A61CDB1AD1E92F0022B461 /* diamond.jpg */,
 				05A61CD91ACDFFD80022B461 /* greenwater.jpg */,
 				05A61CDA1ACDFFD80022B461 /* newspace.jpg */,

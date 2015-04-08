@@ -9,6 +9,9 @@ enum {
     M_POINTLIGHT,
     M_PERSPECTIVE,
     M_ROLLERCOASTER,
+    M_WAVE,
+    M_FLAP,
+    M_FLAIL,
     M_SPACE,
     M_SKY,
     M_OCEAN,
@@ -19,16 +22,13 @@ enum {
     R_SHOULDER
 };
 
-#define MAX_NO_TEXTURES 1
-#define MAX_FILE_NAME 512
-char textureFileNameWithPath[MAX_FILE_NAME];
-GLuint textureIds[MAX_NO_TEXTURES];
-
-
 // function prototypes
 int LoadGLTextures(char* fname);
 void display(void);
 void ride();
+void wave();
+void flail();
+void flap();
 void reshape(int width, int height);
 void idle(void);
 void skeyboard(int key, int x, int y);
@@ -49,8 +49,7 @@ void drawRollercoaster();
 void drawCurve(int startPoint);
 void drawCone(GLdouble base, GLdouble height, GLint slices, GLint stacks);
 void drawCube();
-void drawFog();
-void shootLaser();
+void drawDeathStar();
 
 void menu(int button);
 
@@ -95,8 +94,9 @@ float yrot=0;
 float zrot=0;
 
 // environment globals
-int textures[4];
+int textures[5];
 bool fog=false;
+int currTexID = 2;
 
 // rollercoaster globals
 float curveVerts[25][3] = {
@@ -138,55 +138,8 @@ float nextz=0;
 
 using namespace std;
 
-bool makeFnameWithPath(char* fname, char* pathName, char* fnameWithPath)
-{
-    
-    int last = -1;
-    for (int i = 0; last==-1 && i < MAX_FILE_NAME; ++i) {
-        if (pathName[i] == 0) {
-            last=i;
-            if (i>0 && pathName[i-1]!='/') {
-                fnameWithPath[i]='/';
-                last ++;
-            }
-        }
-        else {
-            fnameWithPath[i]=pathName[i];
-        }
-    }
-    
-    // if the pathname exceeds our space bound we return false
-    // we could make this more robust by dynamically allocating the right amout of space!
-    if (last == -1) {
-        return false;
-    }
-    
-    bool done=false;
-    
-    for (int i=0; !done && i<MAX_FILE_NAME; ++i) {
-        fnameWithPath[last+i] = fname[i];
-        if (fname[i]==0) {
-            done=true;
-        }
-    }
-    return done;
-}
-
 int main(int argc, char **argv)
 {
-//    // name of texture file
-//    char* fname="clouds.jpg";
-//    
-//    // texture file is expected to be in build directory (i.e. argv[0]) unless the project folder is given as
-//    // a command line argument
-//    // edit the project scheme to add command line argument $SRSROOT (which xcode knows as the project dir)
-//    if (argc==2) {
-//        makeFnameWithPath(fname, argv[1], textureFileNameWithPath);
-//    }
-//    else {
-//        makeFnameWithPath(fname, argv[0], textureFileNameWithPath);
-//    }
-
     // initialize glut
     glutInit(&argc, argv);
     
@@ -234,6 +187,11 @@ void init()
     glutAddMenuEntry("Control Elbow Joint", R_ELBOW);
     glutAddMenuEntry("Control Wrist Joint", R_WRIST);
     
+    int tricks = glutCreateMenu(menu);
+    glutAddMenuEntry("Do The Wave", M_WAVE);
+    glutAddMenuEntry("Flail", M_FLAIL);
+    glutAddMenuEntry("Flap", M_FLAP);
+    
     int camSettings = glutCreateMenu(menu);
     glutAddMenuEntry("Toggle Global Perspective", M_PERSPECTIVE);
     glutAddMenuEntry("Rollercoaster Mode", M_ROLLERCOASTER);
@@ -252,6 +210,7 @@ void init()
     glutAddSubMenu("Joint Controls", armSegments);
     glutAddSubMenu("Camera Controls", camSettings);
     glutAddSubMenu("Environment", environ);
+    glutAddSubMenu("Tricks", tricks);
     
     glutAttachMenu(GLUT_RIGHT_BUTTON);
     
@@ -280,17 +239,19 @@ void init()
     
     // enable depth buffering
     glEnable(GL_DEPTH_TEST);
-    // load textures
-    textures[0] = LoadGLTextures("/Users/stephaniezellner/Desktop/OpenGL_hulett_zellner/Robot/Robot/newspace.jpg");
-    textures[1] = LoadGLTextures("/Users/stephaniezellner/Desktop/OpenGL_hulett_zellner/Robot/Robot/clouds.jpg");
-    textures[2] = LoadGLTextures("/Users/stephaniezellner/Desktop/OpenGL_hulett_zellner/Robot/Robot/greenwater.jpg");
-    textures[3] = LoadGLTextures("/Users/stephaniezellner/Desktop/OpenGL_hulett_zellner/Robot/Robot/diamond.jpg");
-    glBindTexture(GL_TEXTURE_2D, textures[2]);
+    
+    textures[0] = LoadGLTextures("newspace.jpg");
+    textures[1] = LoadGLTextures("clouds.jpg");
+    textures[2] = LoadGLTextures("greenwater.jpg");
+    textures[3] = LoadGLTextures("diamond.jpg");
+    textures[4] = LoadGLTextures("deathstar.png");
+    
+    glBindTexture(GL_TEXTURE_2D, textures[currTexID]);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_DECAL);
+    glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
     
     // fog parameters
     GLfloat fogColor[4] = {0.9,0.9,0.9,1.0};
@@ -358,16 +319,16 @@ void menu(int button) {
             ride();
             break;
         case M_SPACE:
-            glBindTexture(GL_TEXTURE_2D, textures[0]);
+            currTexID=0;
             break;
         case M_SKY:
-            glBindTexture(GL_TEXTURE_2D, textures[1]);
+            currTexID=1;
             break;
         case M_OCEAN:
-            glBindTexture(GL_TEXTURE_2D, textures[2]);
+            currTexID=2;
             break;
         case M_CRYSTAL:
-            glBindTexture(GL_TEXTURE_2D, textures[3]);
+            currTexID=3;
             break;
         case M_FOG:
             fog = !fog;
@@ -381,7 +342,15 @@ void menu(int button) {
         case R_WRIST:
             armSegment=R_WRIST;
             break;
-            
+        case M_WAVE:
+            wave();
+            break;
+        case M_FLAIL:
+            flail();
+            break;
+        case M_FLAP:
+            flap();
+            break;
             
     }
 }
@@ -393,13 +362,87 @@ void ride() {
     rcz = 0.1*curveVerts[0][2];
     // depends on the number of samples being taken
     while (curveCamStep<8.0) {
-        cout << "camstep " << curveCamStep << endl;
         curveCamStep += 0.01;
         display();
     }
     // end of ride signals reset to previous camera settings
     rollercoaster=false;
     glutPostRedisplay();
+}
+
+float clamp(float t) {
+    if (t < 0) {
+        return 0;
+    } else if (t > 2 * M_PI) {
+        return 2 * M_PI;
+    }
+    return t;
+}
+
+void wave() {
+    float offset = 1;
+    float increment = 0.1;
+    float t = 0;
+    
+    while (t <= 2*M_PI + 5*offset) {
+        leftWristVertTheta = 45 * sin(clamp(t));
+        leftElbowVertTheta = 45 * sin(clamp(t - offset));
+        leftShoulderVertTheta = 45 * sin(clamp(t - 2*offset));
+        rightShoulderVertTheta = -45 * sin(clamp(t - 3*offset));
+        rightElbowVertTheta = -45 * sin(clamp(t - 4*offset));
+        rightWristVertTheta = -45 * sin(clamp(t - 5*offset));
+        
+        display();
+        t += increment;
+    }
+}
+
+void flail() {
+    float offset = 0.5;
+    float increment = 0.2;
+    float t = 0;
+    
+    leftShoulderVertTheta = -90;
+    rightShoulderVertTheta = -90;
+    
+    while (t <= 10*M_PI) {
+        leftWristHorizTheta = 20 * sin(t);
+        leftElbowHorizTheta = 20 * sin(t - offset);
+        leftShoulderHorizTheta = 20 * sin(t - 2*offset);
+        rightShoulderHorizTheta = -20 * sin(t - 3*offset);
+        rightElbowHorizTheta = -20 * sin(t - 4*offset);
+        rightWristHorizTheta = -20 * sin(t - 5*offset);
+        
+        display();
+        t += increment;
+    }
+    
+    leftShoulderVertTheta = 0;
+    rightShoulderVertTheta = 0;
+    leftWristHorizTheta = 0;
+    leftElbowHorizTheta = 0;
+    leftShoulderHorizTheta = 0;
+    rightShoulderHorizTheta = 0;
+    rightElbowHorizTheta = 0;
+    rightWristHorizTheta = 0;
+}
+
+void flap() {
+    float offset = 0;
+    float increment = 0.1;
+    float t = 0;
+    
+    while (t <= 2*M_PI + 5*offset) {
+        leftWristVertTheta = 45 * sin(clamp(t));
+        leftElbowVertTheta = 45 * sin(clamp(t - offset));
+        leftShoulderVertTheta = 45 * sin(clamp(t - 2*offset));
+        rightShoulderVertTheta = 45 * sin(clamp(t - 3*offset));
+        rightElbowVertTheta = 45 * sin(clamp(t - 4*offset));
+        rightWristVertTheta = 45 * sin(clamp(t - 5*offset));
+        
+        display();
+        t += increment;
+    }
 }
 
 void motion(int x, int y) {
@@ -605,8 +648,7 @@ void display()
     }
     if (rollercoaster) {
         glLoadIdentity();
-        cout << "rcx/y/z " << rcx << "/" << rcy << "/" << rcz << endl;
-        gluLookAt(rcx+6,rcy+5,rcz,nextx+6,nexty+5,nextz,0,1,0);
+        gluLookAt(rcx+6,rcy+5.5,rcz,nextx+6,nexty+5.5,nextz,0,1,0);
     }
 
     // position of light0
@@ -638,13 +680,67 @@ void display()
     glLineWidth(4);
     
     glNormal3f(0,1,0);
-    drawFloor();
+    glPushMatrix();
+    
+    // draw objects
     drawRobot(1);
     drawTeapot();
     drawCube();
     drawIcosahedron();
     drawCone(1,4,20,20);
     drawRollercoaster();
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    drawDeathStar();
+    glDisable(GL_BLEND);
+    
+    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+    glDisable(GL_DEPTH_TEST);
+    
+    glEnable(GL_STENCIL_TEST);
+    glStencilFunc(GL_EQUAL,0,1);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_INCR);
+    
+    glEnable(GL_CULL_FACE);
+   
+    // draw floor
+    drawFloor();
+    glDisable(GL_CULL_FACE);
+    
+    glEnable(GL_DEPTH_TEST);
+    
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glStencilFunc(GL_LEQUAL,1,7);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_INCR);
+    
+    // draw reflected objects
+    glPushMatrix();
+    glScalef(1,-1,1);
+    drawRobot(1);
+    drawTeapot();
+    drawIcosahedron();
+    drawCone(1,4,20,20);
+    drawRollercoaster();
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glStencilFunc(GL_GEQUAL,1,7);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+    glPopMatrix();
+    
+    // draw floor
+    drawFloor();
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glStencilFunc(GL_LESS,1,7);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+    
+    // draw the stupid floor again
+    drawFloor();
+    glDisable(GL_BLEND);
+    glDisable(GL_STENCIL_TEST);
+    
+    glPopMatrix();
     glutSwapBuffers();
 }
 
@@ -680,11 +776,9 @@ void drawCurve(int startPoint) {
             polyVal[i] = coeff[i][0]*t*t*t + coeff[i][1]*t*t + coeff[i][2]*t + coeff[i][3];
         }
         glVertex3f(0.1*polyVal[0], 0.1*polyVal[1], 0.1*polyVal[2]);
-        if (rollercoaster)
-            cout << curveDrawStep << "/" << curveCamStep << endl;
+        
         if (fabs(curveDrawStep-curveCamStep)<0.0001){
             storeNext=true;
-            cout << "equal " << curveDrawStep << endl;
             rcx=0.1*polyVal[0];
             rcy=0.1*polyVal[1];
             rcz=0.1*polyVal[2];
@@ -726,9 +820,36 @@ void drawRollercoaster() {
 }
 
 
+void drawDeathStar() {
+    glPushMatrix();
+    glTranslatef(2, 8, -2);
+    float modelview[16];
+    glGetFloatv(GL_MODELVIEW_MATRIX, modelview);
+    modelview[0] = 1;
+    modelview[10] = 1;
+    modelview[1] = 0;
+    modelview[2] = 0;
+    modelview[8] = 0;
+    modelview[9] = 0;
+    
+    glLoadMatrixf(modelview);
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, textures[4]);
+    glBegin(GL_QUADS);
+    float catsize = 2.0;
+    glTexCoord2f(0.0f, 0.0f); glVertex3f(-catsize, -catsize,  catsize);
+    glTexCoord2f(1.0f, 0.0f); glVertex3f( catsize, -catsize,  catsize);
+    glTexCoord2f(1.0f, 1.0f); glVertex3f( catsize,  catsize,  catsize);
+    glTexCoord2f(0.0f, 1.0f); glVertex3f(-catsize,  catsize,  catsize);
+    glEnd();
+    glDisable(GL_TEXTURE_2D);
+    glPopMatrix();
+}
+
 void drawCube () {
     float cubesize = 32;
     glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, textures[currTexID]);
     glPushMatrix();
     glTranslatef(0,2,0);
     // rotate cube
@@ -778,13 +899,13 @@ void drawFloor() {
     for (int i=-floorSize; i<floorSize; i++) {
         for (int j=-floorSize; j<floorSize; j++) {
             if ((i+j)%2 == 0){
-                GLfloat red[] = {0.9,0,0};
+                GLfloat red[] = {0.9,0,0,0.8};
                 glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, red);
                 glMaterialfv(GL_FRONT, GL_SPECULAR, red);
                 glMateriali(GL_FRONT,GL_SHININESS,0);
             }
             else {
-                GLfloat white[] = {1,1,1};
+                GLfloat white[] = {1,1,1,0.8};
                 glMaterialfv(GL_FRONT, GL_AMBIENT_AND_DIFFUSE, white);
                 glMaterialfv(GL_FRONT, GL_SPECULAR, white);
                 glMateriali(GL_FRONT,GL_SHININESS,0);
@@ -805,8 +926,6 @@ void drawFloor() {
 void drawRobot(GLfloat radius) {
     glPushMatrix();
     glTranslatef(robotX,radius,robotZ);
-//    drawBottom();
-//    drawMiddle();
     drawLegs();
     drawArms();
     headAssembly();
