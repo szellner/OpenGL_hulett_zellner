@@ -297,8 +297,20 @@ void menu(int button) {
             'Camera Controls' and selecting 'Toggle Global\n\
             Perspective'\n\
             \n\
+            simulate a rollercoaster ride by going to 'Camera\n\
+            Controls' and selecting 'Rollercoaster Mode'\n\
+            \n\
             the ambient and point lights may be toggled\n\
             by selecting either option under 'Lighting'\n\
+            \n\
+            the texture of the environment cube can be \n\
+            changed through the 'Environment' submenu \n\
+            \n\
+            to turn fog effects on or off, choose 'Toggle \n\
+            Fog' under the 'Environment' submenu\n\
+            \n\
+            to see our robot's mad skillz, go to the \n\
+            'Tricks' submenu \n\
             \n"
             << endl;
             break;
